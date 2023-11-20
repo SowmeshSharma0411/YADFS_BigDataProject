@@ -68,8 +68,7 @@ def read_file(data_id, chunk_id):
     data_directory = os.path.join(data_folder, secure_filename(data_id))
     file_location = os.path.join(data_directory, secure_filename(chunk_id))
 
-    print(f"Reading file - data_id: {data_id}, chunk_id: {
-          chunk_id}, file_location: {file_location}")
+    print(f"Reading file - data_id: {data_id}, chunk_id: {chunk_id}, file_location: {file_location}")
 
     if os.path.exists(file_location):
         return send_file(file_location)

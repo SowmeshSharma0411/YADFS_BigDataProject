@@ -5,3 +5,6 @@ NameNode/data/*
 curl_commands.txt
 removed_code.py
 dont_read.md
+pr.py
+DataNode4/root/*
+copy_folder.py
