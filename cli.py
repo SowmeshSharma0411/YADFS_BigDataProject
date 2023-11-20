@@ -77,12 +77,12 @@ def handle_list_directory(directory_path):
     print(indented_json)
 
 def handle_delete_folder(folder_name, directory_path):
-    response = requests.get(f"{namenode_url}/delete_folder", data={'folder_name':folder_name, 'directory_path':directory_path})
+    response = requests.post(f"{namenode_url}/delete_folder", data={'folder_name':folder_name, 'directory_path':directory_path})
     indented_json = json.dumps(response.json(), indent=2)
     print(indented_json)
 
 def handle_copy_file(original_path, destination_path, file_name):
-    response = requests.get(f"{namenode_url}/copy_file", data={'original_path':original_path, 'destination_path':destination_path, 'file_name': file_name})
+    response = requests.post(f"{namenode_url}/copy_file", data={'original_path':original_path, 'destination_path':destination_path, 'file_name': file_name})
     indented_json = json.dumps(response.json(), indent=2)
     print(indented_json)
 
