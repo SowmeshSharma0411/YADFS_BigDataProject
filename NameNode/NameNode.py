@@ -1,3 +1,5 @@
+#importing all the libraries and modules required for the project
+
 from flask import Flask, request, jsonify, send_file, abort
 import os
 import io
@@ -129,30 +131,34 @@ def directory_exists(directory_path):
 
 @app.route('/get_info', methods=['GET'])
 def get_info():
-
+    # Retrieve metadata from MongoDB for files, directories, and chunks
     files_metadata = list(files_collection.find({}, {'_id': 0}))
     directories_metadata = list(directories_collection.find({}, {'_id': 0}))
-
-    # Fetch chunks metadata from MongoDB
     chunks_metadata = list(chunks_collection.find({}, {'_id': 0}))
 
-    # Combine files and chunks metadata
+    # Combine the retrieved metadata into a single dictionary
     metadata = {'files': files_metadata, 'chunks': chunks_metadata, 'directories': directories_metadata}
 
+    ## Return the combined metadata in a JSON response
     return jsonify({'metadata': metadata})
-    #return jsonify({"data": chunks_location})
 
 def fetch_chunk_from_datanode(datanode_address, data_id, chunk_id):
+    #arguments datanode_address(str), data_id(str), chunk_id(int)
+
+    # Construct the endpoint to fetch the chunk from the DataNode
     datanode_download_endpoint = f"{datanode_address}/read_file/{data_id}/{chunk_id}"
 
     try:
         response = requests.get(datanode_download_endpoint)
         if response.status_code == 200:
+            # Return the content of the chunk if successfully fetched
             return response.content
         else:
+            # Display an error message if fetching the chunk fails
             print(f"Failed to fetch chunk {chunk_id} from {datanode_address}")
             return None
     except requests.exceptions.RequestException:
+        # Handle connection errors to the DataNode
         print(f"Failed to connect to {datanode_address}")
         return None
 
@@ -160,6 +166,7 @@ def fetch_chunk_from_datanode(datanode_address, data_id, chunk_id):
 @app.route('/get_file', methods=['POST'])
 def get_file():
 
+    # Retrieve file_name and directory_path from the request
     file_name = request.form.get('file_name')
     directory_path = request.form.get('directory_path', '/')
 
@@ -177,11 +184,9 @@ def get_file():
     if not chunks_metadata:
         return jsonify({'error': 'Invalid data_id or no chunks found'}), 400
 
-    #if data_id not in chunks_location:
-        #return jsonify({'error': 'Invalid data_id'}), 400
-
     file_data = b""
     
+    # Iterate through chunks and fetch their content from DataNodes
     for chunk_info in sorted(chunks_metadata, key=lambda x: x['chunk_id']):
         datanode_address = chunk_info['datanode_address']
         chunk_id = chunk_info['chunk_id']
@@ -191,7 +196,7 @@ def get_file():
         if file_chunk is not None:
             file_data += file_chunk
         else:
-            # If the initial fetch fails, check the replication status
+            # Handle cases where the initial fetch fails
             replication_entry = replication_collection.find_one({'data_id': data_id, 'chunk_id': chunk_id})
             if replication_entry and replication_entry['status'] == 'success':
                 # If replication was successful, attempt to fetch the chunk again'
@@ -211,6 +216,7 @@ def get_file():
         #datanode_download_endpoint = f"{datanode_address}/read_file/{data_id}/{chunk_id}"
 
     if not file_data:
+        # Return an error response if failed to fetch the file data
         return jsonify({'error': 'Failed to fetch file data'}), 500
 
     # Save the stitched file temporarily
@@ -218,26 +224,36 @@ def get_file():
     with open(file_path, 'wb') as file:
         file.write(file_data)
 
+    # Return the file as an attachment for download
     return send_file(file_path, as_attachment=True)
 
 
 # Function to handle replication for a single chunk
 def replicate_chunk(data_id, chunk_id, chunk_data, active_nodes):
+    #arguments data_id(str), chunk_id(str), chunk_data(bytes), active_nodes(list)
+
+    # Find the index of the original node where the chunk resides
     original_node_index = active_nodes.index(
         chunks_location[data_id][chunk_id][0])
 
     # Clear existing replication details for this chunk in MongoDB
     replication_collection.delete_many({'data_id': data_id, 'chunk_id': chunk_id})
 
+    # Loop through the replication attempts based on the replication factor
     for attempt in range(1, replication_factor):
+        #Calculate the index for the next replica
         node_index = (original_node_index + attempt) % len(active_nodes)
         datanode_address = active_nodes[node_index]
         datanode_upload_endpoint = f"{datanode_address}/write_file/"
 
+        # Prepare the chunk data to be sent to the DataNode
         chunk_file = {'file': (f'chunk_{chunk_id}.bin', chunk_data)}
+
+        # Send the chunk to the DataNode for replication
         response = requests.post(datanode_upload_endpoint, files=chunk_file, data={
                                  'data_id': data_id, 'chunk_id': chunk_id})
-        
+
+         # Prepare replication entry to be stored in the database
         replication_entry = {
             'data_id': data_id,
             'chunk_id': chunk_id,
@@ -248,6 +264,7 @@ def replicate_chunk(data_id, chunk_id, chunk_data, active_nodes):
         # Store replication details in MongoDB
         replication_collection.insert_one(replication_entry)
 
+        # Update chunks location if replication is successful
         if response.status_code == 200:
             with chunks_location_lock:
                 chunks_location[data_id][chunk_id].append(datanode_address)
@@ -256,10 +273,14 @@ def replicate_chunk(data_id, chunk_id, chunk_data, active_nodes):
 
 
 def start_replication(data_id, file_stream, number_of_chunks, chunk_size, extra_bytes, active_nodes):
+    #arguments data_id(str), file_stream(file-like object), number_of_chunks(int), chunk_size(int), extra_bytes(int), active_nodes(list)
+
     for i in range(number_of_chunks):
         chunk_id = i + 1
+
         # Move the stream pointer to the start of the chunk
         file_stream.seek(i * chunk_size)
+
         # Read the chunk data from the stream
         chunk_data = file_stream.read(
             chunk_size + (1 if i < extra_bytes else 0))
@@ -274,15 +295,20 @@ def start_replication(data_id, file_stream, number_of_chunks, chunk_size, extra_
 
 # Function to split the file and distribute chunks
 def split_file(file_stream, number_of_chunks, data_id):
+    #arguments file_stream(file like object), number_of_chunks(int), data_id(str)
+
+    # Calculate file size and determine chunk size
     file_stream.seek(0, os.SEEK_END)
     file_size = file_stream.tell()
     file_stream.seek(0)
     chunk_size = file_size // number_of_chunks
     extra_bytes = file_size % number_of_chunks
 
+    # Get addresses of active DataNodes
     active_nodes = list(
         filter(lambda node: active_datanodes[node], active_datanodes.keys()))
 
+    # Split the file into chunks and distribute them among DataNodes using Round-Robin
     for i in range(number_of_chunks):
         chunk_data = file_stream.read(
             chunk_size + (1 if i < extra_bytes else 0))
@@ -295,6 +321,7 @@ def split_file(file_stream, number_of_chunks, data_id):
                                  'data_id': data_id, 'chunk_id': i+1})
 
         if response.status_code == 200:
+            # Update chunks_location with DataNode information
             with chunks_location_lock:
                 chunks_location.setdefault(data_id, {}).setdefault(
                     i+1, []).append(datanode_address)
@@ -309,33 +336,48 @@ def split_file(file_stream, number_of_chunks, data_id):
 
 def check_datanodes_health():
     while True:
+        # Iterate through each DataNode address
         for address in datanode_addresses:
             try:
+                 # Attempt to fetch the DataNode's health status
                 response = requests.get(f"{address}/is_active")
+
+                # Check if the DataNode is active based on the response
                 is_active = response.status_code == 200 and response.json().get(
                     'status') != "DataNode is not active"
+                
+                # Update the status of the DataNode in the active_datanodes dictionary
                 active_datanodes[address] = is_active
 
+                # Update the status of the DataNode in the database collection
                 active_datanodes_collection.update_one(
-                {'address': address},
-                {'$set': {'status': 'Active' if is_active else 'Inactive'}},
-                upsert=True
+                    {'address': address},
+                    {'$set': {'status': 'Active' if is_active else 'Inactive'}},
+                    upsert=True
                 )
 
             except requests.exceptions.RequestException:
+
+                # If there's an exception, mark the DataNode as inactive
                 active_datanodes[address] = False
+
+                # Update the status of the DataNode in the database as 'Inactive'
                 active_datanodes_collection.update_one(
                     {'address': address},
                     {'$set': {'status': 'Inactive'}},
                     upsert=True
                 )
+        # Wait for 1 second before checking the health of DataNodes again
         time.sleep(1)
         
 
 @app.route('/create_directory', methods=['POST'])
 def create_directory():
+
+    # Extract the directory path from the POST request
     directory_path = request.form.get('directory_path')
     
+    # Ensure the directory path is valid (starts with '/')
     if not directory_path or not directory_path.startswith("/"):
         return jsonify({'error': 'Invalid directory path'}), 400
     
@@ -343,13 +385,14 @@ def create_directory():
     existing_directory = directories_collection.find_one({'path': directory_path})
 
     if existing_directory:
+        # If the directory already exists, return an error response
         return jsonify({'error': f"Directory '{directory_path}' already exists"}), 400
     
     else:
     # Create the directory in the database
         directory_data = {
             'path': directory_path,
-            'content': []
+            'content': [] # Initialize an empty list for storing folder content
         }
         directories_collection.insert_one(directory_data)
 
@@ -359,11 +402,12 @@ def create_directory():
         # Update the content field of the parent directory
         parent_path = '/'.join(directory_path.split('/')[:-1])
         if parent_path:
+            # Add the newly created folder to the content list of the parent directory
             directories_collection.update_one(
                 {'path': parent_path},
                 {'$addToSet': {'content': {'folder_name': folder_name}}}
             )
-        
+        # Return a success message upon successful directory creation
         return jsonify({"message": f"Directory '{directory_path}' created successfully"}), 200
 
 
@@ -399,7 +443,7 @@ def list_directory():
 
     return jsonify({'files': files, 'folders': folders})
 
-
+#till here
 # Endpoint to display the status of DataNodes on request
 @app.route('/datanode_status', methods=['GET'])
 def datanode_status():
