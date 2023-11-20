@@ -1,0 +1,7 @@
+DataNode1/data/*
+DataNode2/data/*
+DataNode3/data/*
+NameNode/data/*
+curl_commands.txt
+removed_code.py
+dont_read.md
