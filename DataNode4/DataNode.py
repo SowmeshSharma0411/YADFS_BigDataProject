@@ -6,12 +6,13 @@ import json
 
 app = Flask(__name__)
 
+# Setting up the data folder
 current_folder = os.path.dirname(os.path.abspath(__file__))
 
 data_folder = os.path.join(current_folder, 'root')
 os.makedirs(data_folder, exist_ok=True)
 
-
+# Initializing DataNode status
 def init_data_node_status():
     config_path = os.path.join(current_folder, 'config.json')
     if os.path.exists(config_path):
@@ -34,7 +35,7 @@ data_node_status = init_data_node_status()
 # Storage format: {'data_id': {'chunk_id': file_path}}
 # storage = {}
 
-
+# Endpoint to check DataNode's activity
 @app.route("/is_active", methods=['GET'])
 def is_active():
     if data_node_status["is_active"]:
@@ -42,7 +43,7 @@ def is_active():
     else:
         return {"status": "DataNode is not active"}, 503
 
-
+# Endpoint to write/upload files
 @app.route("/write_file/", methods=['POST'])
 def write_file():
     data_id = request.form['data_id']
@@ -59,7 +60,7 @@ def write_file():
 
     return {"data_id": data_id, "chunk_id": chunk_id, "file_location": file_location}
 
-
+# Endpoint to read/download files
 @app.route("/read_file/<data_id>/<chunk_id>", methods=['GET'])
 def read_file(data_id, chunk_id):
     if not data_node_status["is_active"]:
@@ -76,7 +77,7 @@ def read_file(data_id, chunk_id):
         print("File not found.")
         return abort(404, "File chunk not found")
 
-
+# Endpoint to delete chunks
 @app.route("/delete_chunks/<data_id>", methods=['POST'])
 def delete_chunks(data_id):
     data_directory = os.path.join(data_folder, secure_filename(data_id))
@@ -91,6 +92,6 @@ def delete_chunks(data_id):
     else:
         return abort(404, f"Chunks directory for data_id {data_id} not found")
 
-
+# Running the Flask app
 if __name__ == "__main__":
     app.run(port=5006, debug=True)

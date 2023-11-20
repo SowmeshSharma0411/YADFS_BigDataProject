@@ -6,13 +6,15 @@ import json
 
 app = Flask(__name__)
 
+# Define the path for the root directory where files will be stored
 current_folder = os.path.dirname(os.path.abspath(__file__))
 
 data_folder = os.path.join(current_folder, 'root')
 os.makedirs(data_folder, exist_ok=True)
 
-
+# Initialize DataNode status with a unique identifier and active status
 def init_data_node_status():
+    # Check for or create a configuration file to store DataNode details
     config_path = os.path.join(current_folder, 'config.json')
     if os.path.exists(config_path):
         with open(config_path, 'r') as config_file:
@@ -28,13 +30,10 @@ def init_data_node_status():
         "uuid": uuid_value
     }
 
-
+# Initialize DataNode status
 data_node_status = init_data_node_status()
 
-# Storage format: {'data_id': {'chunk_id': file_path}}
-# storage = {}
-
-
+# Endpoint to check if the DataNode is active and retrieve its UUID
 @app.route("/is_active", methods=['GET'])
 def is_active():
     if data_node_status["is_active"]:
@@ -42,7 +41,7 @@ def is_active():
     else:
         return {"status": "DataNode is not active"}, 503
 
-
+# Endpoint to receive and store files on the DataNode
 @app.route("/write_file/", methods=['POST'])
 def write_file():
     data_id = request.form['data_id']
@@ -53,13 +52,9 @@ def write_file():
     file_location = os.path.join(data_directory, secure_filename(chunk_id))
     file.save(file_location)
 
-    # if data_id not in storage:
-    # storage[data_id] = {}
-    # storage[data_id][chunk_id] = file_location
-
     return {"data_id": data_id, "chunk_id": chunk_id, "file_location": file_location}
 
-
+# Endpoint to read and retrieve a specific file chunk
 @app.route("/read_file/<data_id>/<chunk_id>", methods=['GET'])
 def read_file(data_id, chunk_id):
     if not data_node_status["is_active"]:
@@ -77,6 +72,7 @@ def read_file(data_id, chunk_id):
         return abort(404, "File chunk not found")
 
 
+# Endpoint to delete all chunks associated with a particular data_id
 @app.route("/delete_chunks/<data_id>", methods=['POST'])
 def delete_chunks(data_id):
     data_directory = os.path.join(data_folder, secure_filename(data_id))
@@ -92,4 +88,5 @@ def delete_chunks(data_id):
 
 
 if __name__ == "__main__":
+    # Run the Flask app on port 5005 in debug mode
     app.run(port=5005, debug=True)

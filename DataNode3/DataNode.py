@@ -6,13 +6,16 @@ import json
 
 app = Flask(__name__)
 
+# Get the current folder path
 current_folder = os.path.dirname(os.path.abspath(__file__))
 
+# Create a 'root' folder to store uploaded files if it doesn't exist
 data_folder = os.path.join(current_folder, 'root')
 os.makedirs(data_folder, exist_ok=True)
 
 
 def init_data_node_status():
+    #Initializes the DataNode status by reading or creating a unique UUID in a configuration file.
     config_path = os.path.join(current_folder, 'config.json')
     if os.path.exists(config_path):
         with open(config_path, 'r') as config_file:
@@ -45,6 +48,7 @@ def is_active():
 
 @app.route("/write_file/", methods=['POST'])
 def write_file():
+    #Endpoint to receive and store files on the DataNode.
     data_id = request.form['data_id']
     chunk_id = request.form['chunk_id']
     file = request.files['file']
@@ -62,6 +66,7 @@ def write_file():
 
 @app.route("/read_file/<data_id>/<chunk_id>", methods=['GET'])
 def read_file(data_id, chunk_id):
+    #Endpoint to read and retrieve a specific file chunk.
     if not data_node_status["is_active"]:
         return {"status": "DataNode is not active"}, 503
 
@@ -79,6 +84,7 @@ def read_file(data_id, chunk_id):
 
 @app.route("/delete_chunks/<data_id>", methods=['POST'])
 def delete_chunks(data_id):
+    #Endpoint to delete all chunks associated with a particular data_id
     data_directory = os.path.join(data_folder, secure_filename(data_id))
 
     if os.path.exists(data_directory):
@@ -93,4 +99,5 @@ def delete_chunks(data_id):
 
 
 if __name__ == "__main__":
+    # Run the Flask app on port 5002 in debug mode
     app.run(port=5002, debug=True)

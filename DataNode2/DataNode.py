@@ -6,19 +6,24 @@ import json
 
 app = Flask(__name__)
 
+# Get the current directory path
 current_folder = os.path.dirname(os.path.abspath(__file__))
 
+# Create a folder named 'root' to store uploaded files if it doesn't exist
 data_folder = os.path.join(current_folder, 'root')
 os.makedirs(data_folder, exist_ok=True)
 
-
+# Function to initialize the DataNode status, including a unique identifier
 def init_data_node_status():
+    # Path for configuration file to store DataNode details
     config_path = os.path.join(current_folder, 'config.json')
     if os.path.exists(config_path):
+        # Load existing UUID if config file exists
         with open(config_path, 'r') as config_file:
             config = json.load(config_file)
             uuid_value = config.get('uuid')
     else:
+        # Generate a new UUID and store it in the config file
         uuid_value = str(uuid.uuid4())
         with open(config_path, 'w') as config_file:
             json.dump({'uuid': uuid_value}, config_file)
@@ -28,13 +33,13 @@ def init_data_node_status():
         "uuid": uuid_value
     }
 
-
+# Initialize DataNode status
 data_node_status = init_data_node_status()
 
 # Storage format: {'data_id': {'chunk_id': file_path}}
 # storage = {}
 
-
+# Endpoint to check if the DataNode is active and retrieve its UUID
 @app.route("/is_active", methods=['GET'])
 def is_active():
     if data_node_status["is_active"]:
@@ -42,7 +47,7 @@ def is_active():
     else:
         return {"status": "DataNode is not active"}, 503
 
-
+# Endpoint to receive and store files on the DataNode
 @app.route("/write_file/", methods=['POST'])
 def write_file():
     data_id = request.form['data_id']
@@ -59,7 +64,7 @@ def write_file():
 
     return {"data_id": data_id, "chunk_id": chunk_id, "file_location": file_location}
 
-
+# Endpoint to read and retrieve a specific file chunk
 @app.route("/read_file/<data_id>/<chunk_id>", methods=['GET'])
 def read_file(data_id, chunk_id):
     if not data_node_status["is_active"]:
@@ -68,6 +73,7 @@ def read_file(data_id, chunk_id):
     data_directory = os.path.join(data_folder, secure_filename(data_id))
     file_location = os.path.join(data_directory, secure_filename(chunk_id))
 
+    # Log the file read operation
     print(f"Reading file - data_id: {data_id}, chunk_id: {chunk_id}, file_location: {file_location}")
 
     if os.path.exists(file_location):
@@ -76,16 +82,18 @@ def read_file(data_id, chunk_id):
         print("File not found.")
         return abort(404, "File chunk not found")
 
-
+# Endpoint to delete all chunks associated with a particular data_id
 @app.route("/delete_chunks/<data_id>", methods=['POST'])
 def delete_chunks(data_id):
     data_directory = os.path.join(data_folder, secure_filename(data_id))
 
     if os.path.exists(data_directory):
+        #Remove all files in the data directory
         for file_name in os.listdir(data_directory):
             file_location = os.path.join(data_directory, file_name)
             os.remove(file_location)
 
+        #remove the data directory itself
         os.rmdir(data_directory)
         return {"message": f"Chunks for data_id {data_id} deleted successfully"}
     else:
@@ -93,4 +101,5 @@ def delete_chunks(data_id):
 
 
 if __name__ == "__main__":
+    # Run the Flask app on port 5001 in debug mode
     app.run(port=5001, debug=True)
