@@ -60,7 +60,7 @@ datanode_addresses = [
 ]
 
 # Replication factor
-replication_factor = 2
+replication_factor = 3
 
 root_directory = "/"
 
@@ -856,99 +856,6 @@ def copy_file():
     )
 
     return jsonify({"message": f"File '{file_name}' copied successfully from {original_path} to {destination_path}"}), 200
-
-
-@app.route('/copy_folder', methods=['POST'])
-def copy_folder():
-
-    original_path = request.form.get('original_path')
-    destination_path = request.form.get('destination_path')
-    folder_name = request.form.get('folder_name')
-
-    # Validate input parameters
-    if not original_path or not destination_path or not folder_name:
-        return jsonify({'error': 'Invalid input parameters'}), 400
-
-    # Ensure that both paths start with '/'
-    if not original_path.startswith('/') or not destination_path.startswith('/'):
-        return jsonify({'error': 'Paths must start with \'/\''}), 400
-    
-    folder_path = original_path + "/" + folder_name
-
-    # Check if the folder exists at the original path
-    folder_metadata = directories_collection.find_one({'path': folder_path}, {'_id': 0, 'content': 1})
-
-    if not folder_metadata:
-        return jsonify({'error': 'Folder not found at the original path'}), 404
-
-    # Update the directory information in MongoDB for the folder
-    directories_collection.update_one(
-        {'path': destination_path},
-        {'$addToSet': {'content': {'folder_name': folder_name}}}
-    )
-
-    new_path = destination_path + "/" + folder_name
-    directory_data = {
-        'path': new_path,
-        'content': folder_metadata['content']
-    }
-    directories_collection.insert_one(directory_data)
-    
-    update_folder_contents_paths(folder_name,folder_path, destination_path)
-
-    return jsonify({"message": f"Folder '{folder_name}' copied successfully from {original_path} to {destination_path}"}), 200
-
-
-def update_folder_contents_paths(folder_name,original_path, destination_path):
-    # Recursively update the directory_path for all contents of the folder
-    contents = directories_collection.find_one({'path': original_path}, {'_id': 0, 'content': 1})
-
-    if contents and 'content' in contents:
-        for item in contents['content']:
-            if 'file_name' in item:
-                # Update the directory_path for files
-                file_name = item['file_name']
-                destination_path = destination_path +"/" + folder_name
-                number_of_chunks = files_collection.find_one({'file_name': file_name}, {'_id': 0, 'number_of_chunks': 1})
-                data_id = files_collection.find_one({'file_name': file_name}, {'_id': 0, 'id': 1})
-                if data_id is not None:
-                    file_data = {
-                        'id': data_id['id'],
-                        'name': file_name,
-                        'number_of_chunks': number_of_chunks['number_of_chunks'],
-                        'replication_factor': replication_factor,
-                        'directory_path': destination_path
-                    }
-                    files_collection.insert_one(file_data)
-            elif 'folder_name' in item:
-                # Update the directory_path for subfolders and recurse into them
-
-                folder_name_new = item['folder_name']
-                folder_path = original_path + "/" + folder_name_new
-                destination_path = destination_path + "/" + folder_name
-
-                folder_metadata = directories_collection.find_one({'path': folder_path}, {'_id': 0, 'content': 1})
-
-                if list(folder_metadata) is not None:
-
-                    # Update the directory information in MongoDB for the folder
-
-                    directories_collection.update_one(
-                        {'path': destination_path},
-                        {'$addToSet': {'content': {'folder_name': folder_name_new}}}
-                    )
-
-                    new_path = destination_path + "/" + folder_name_new
-                    directory_data = {
-                        'path': new_path,
-                        'content': folder_metadata['content']
-                    }
-                    directories_collection.insert_one(directory_data)
-
-                    update_folder_contents_paths(folder_name_new,folder_path, destination_path)
-    else:
-        return
-
 
 if __name__ == '__main__':
     health_thread = threading.Thread(target=check_datanodes_health)
