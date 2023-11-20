@@ -25,7 +25,7 @@ files_collection = db['files']
 # Collection for chunks locations
 chunks_collection = db['chunks']
 
-# Collection for replication chunk locations
+#Collection for replication chunk locations
 replication_collection = db['replication_chunks']
 
 # Collection for directories
@@ -35,7 +35,7 @@ directories_collection = db['directories']
 active_datanodes_collection = db['active_datanodes']
 
 # Collection for failedNode_handled_status
-failedNode_handled_collection = db['failedNode_handled']
+failedNode_handled_collection = db['failedNode_handled'] 
 
 # A dictionary to keep track of DataNode health status
 active_datanodes = {}
@@ -44,10 +44,10 @@ chunks_location = {}
 # Lock for thread-safe operations on the chunks_location dictionary
 chunks_location_lock = threading.Lock()
 
-failed_node = []
+failed_node= []
 
-# Keeps track of all paths which have to be deleted
-deletepaths = []
+#Keeps track of all paths which have to be deleted
+deletepaths=[]
 
 deletefolder_path=[]
 
@@ -55,7 +55,7 @@ deletefolder_path=[]
 datanode_addresses = [
     "http://localhost:5005",
     "http://localhost:5001",
-    "http://localhost:5002",
+    "http://localhost:5002", 
     "http://localhost:5006"
 ]
 
@@ -74,8 +74,7 @@ def upload_file():
     number_of_chunks = int(request.form['number_of_chunks'])
 
     # Get directory path from the request
-    # In file systems, "/" refers to the root directory
-
+    #In file systems, "/" refers to the root directory
     directory_path = request.form.get('directory_path', '/')
 
     # If the directory path doesn't start with '/', add the root directory
@@ -93,7 +92,7 @@ def upload_file():
 
     split_file(request.files['file'].stream, number_of_chunks, data_id)
 
-    # Save file metadata in MongoDB -
+    # Save file metadata in MongoDB - 
     file_data = {
         'id': data_id,
         'name': file.filename,
@@ -114,6 +113,7 @@ def upload_file():
                 }
                 chunks_collection.insert_one(chunk_data)
 
+
     # Save directory information in MongoDB
     directories_collection.update_one(
         {'path': directory_path},
@@ -121,7 +121,6 @@ def upload_file():
     )
 
     return jsonify({"message": "File uploaded and split successfully", "data_id": data_id}), 200
-
 
 def directory_exists(directory_path):
     # Check if the provided directory path exists
@@ -138,16 +137,13 @@ def get_info():
     chunks_metadata = list(chunks_collection.find({}, {'_id': 0}))
 
     # Combine files and chunks metadata
-    metadata = {'files': files_metadata, 'chunks': chunks_metadata,
-                'directories': directories_metadata}
+    metadata = {'files': files_metadata, 'chunks': chunks_metadata, 'directories': directories_metadata}
 
     return jsonify({'metadata': metadata})
-    # return jsonify({"data": chunks_location})
-
+    #return jsonify({"data": chunks_location})
 
 def fetch_chunk_from_datanode(datanode_address, data_id, chunk_id):
-    datanode_download_endpoint = f"{
-        datanode_address}/read_file/{data_id}/{chunk_id}"
+    datanode_download_endpoint = f"{datanode_address}/read_file/{data_id}/{chunk_id}"
 
     try:
         response = requests.get(datanode_download_endpoint)
@@ -168,47 +164,42 @@ def get_file():
     directory_path = request.form.get('directory_path', '/')
 
     # Validate and retrieve file_id based on file_name and directory_path
-    file_metadata = files_collection.find_one(
-        {'name': file_name, 'directory_path': directory_path}, {'_id': 0, 'id': 1})
-
+    file_metadata = files_collection.find_one({'name': file_name, 'directory_path': directory_path}, {'_id': 0, 'id': 1})
+    
     if not file_metadata:
         return jsonify({'error': 'File not found'}), 404
-
+    
     data_id = file_metadata['id']
 
     # Retrieve chunks' metadata from MongoDB
-    chunks_metadata = list(chunks_collection.find(
-        {'file_id': data_id}, {'_id': 0}))
+    chunks_metadata = list(chunks_collection.find({'file_id': data_id}, {'_id': 0}))
 
     if not chunks_metadata:
         return jsonify({'error': 'Invalid data_id or no chunks found'}), 400
 
-    # if data_id not in chunks_location:
-        # return jsonify({'error': 'Invalid data_id'}), 400
+    #if data_id not in chunks_location:
+        #return jsonify({'error': 'Invalid data_id'}), 400
 
     file_data = b""
-
+    
     for chunk_info in sorted(chunks_metadata, key=lambda x: x['chunk_id']):
         datanode_address = chunk_info['datanode_address']
         chunk_id = chunk_info['chunk_id']
-
-        file_chunk = fetch_chunk_from_datanode(
-            datanode_address, data_id, chunk_id)
+        
+        file_chunk = fetch_chunk_from_datanode(datanode_address, data_id, chunk_id)
 
         if file_chunk is not None:
             file_data += file_chunk
         else:
             # If the initial fetch fails, check the replication status
-            replication_entry = replication_collection.find_one(
-                {'data_id': data_id, 'chunk_id': chunk_id})
+            replication_entry = replication_collection.find_one({'data_id': data_id, 'chunk_id': chunk_id})
             if replication_entry and replication_entry['status'] == 'success':
                 # If replication was successful, attempt to fetch the chunk again'
                 datanode_address = replication_entry['datanode_address']
                 data_id = replication_entry['data_id']
                 chunk_id = replication_entry['chunk_id']
 
-                file_chunk_retry = fetch_chunk_from_datanode(
-                    datanode_address, data_id, chunk_id)
+                file_chunk_retry = fetch_chunk_from_datanode(datanode_address, data_id, chunk_id)
                 if file_chunk_retry is not None:
                     file_data += file_chunk_retry
                 else:
@@ -216,7 +207,8 @@ def get_file():
             else:
                 print(f"Replication failed for chunk {chunk_id}")
 
-        # datanode_download_endpoint = f"{datanode_address}/read_file/{data_id}/{chunk_id}"
+
+        #datanode_download_endpoint = f"{datanode_address}/read_file/{data_id}/{chunk_id}"
 
     if not file_data:
         return jsonify({'error': 'Failed to fetch file data'}), 500
@@ -235,8 +227,7 @@ def replicate_chunk(data_id, chunk_id, chunk_data, active_nodes):
         chunks_location[data_id][chunk_id][0])
 
     # Clear existing replication details for this chunk in MongoDB
-    replication_collection.delete_many(
-        {'data_id': data_id, 'chunk_id': chunk_id})
+    replication_collection.delete_many({'data_id': data_id, 'chunk_id': chunk_id})
 
     for attempt in range(1, replication_factor):
         node_index = (original_node_index + attempt) % len(active_nodes)
@@ -246,7 +237,7 @@ def replicate_chunk(data_id, chunk_id, chunk_data, active_nodes):
         chunk_file = {'file': (f'chunk_{chunk_id}.bin', chunk_data)}
         response = requests.post(datanode_upload_endpoint, files=chunk_file, data={
                                  'data_id': data_id, 'chunk_id': chunk_id})
-
+        
         replication_entry = {
             'data_id': data_id,
             'chunk_id': chunk_id,
@@ -261,8 +252,7 @@ def replicate_chunk(data_id, chunk_id, chunk_data, active_nodes):
             with chunks_location_lock:
                 chunks_location[data_id][chunk_id].append(datanode_address)
         else:
-            print(f"Failed to replicate chunk {
-                  chunk_id} to {datanode_address}")
+            print(f"Failed to replicate chunk {chunk_id} to {datanode_address}")
 
 
 def start_replication(data_id, file_stream, number_of_chunks, chunk_size, extra_bytes, active_nodes):
@@ -327,9 +317,9 @@ def check_datanodes_health():
                 active_datanodes[address] = is_active
 
                 active_datanodes_collection.update_one(
-                    {'address': address},
-                    {'$set': {'status': 'Active' if is_active else 'Inactive'}},
-                    upsert=True
+                {'address': address},
+                {'$set': {'status': 'Active' if is_active else 'Inactive'}},
+                upsert=True
                 )
 
             except requests.exceptions.RequestException:
@@ -340,24 +330,23 @@ def check_datanodes_health():
                     upsert=True
                 )
         time.sleep(1)
-
+        
 
 @app.route('/create_directory', methods=['POST'])
 def create_directory():
     directory_path = request.form.get('directory_path')
-
+    
     if not directory_path or not directory_path.startswith("/"):
         return jsonify({'error': 'Invalid directory path'}), 400
-
+    
     # Check if the directory already exists
-    existing_directory = directories_collection.find_one(
-        {'path': directory_path})
+    existing_directory = directories_collection.find_one({'path': directory_path})
 
     if existing_directory:
         return jsonify({'error': f"Directory '{directory_path}' already exists"}), 400
-
+    
     else:
-        # Create the directory in the database
+    # Create the directory in the database
         directory_data = {
             'path': directory_path,
             'content': []
@@ -374,7 +363,7 @@ def create_directory():
                 {'path': parent_path},
                 {'$addToSet': {'content': {'folder_name': folder_name}}}
             )
-
+        
         return jsonify({"message": f"Directory '{directory_path}' created successfully"}), 200
 
 
@@ -406,8 +395,7 @@ def list_directory():
 
     # Extract file names and folder names from the content
     files = [item['file_name'] for item in content if 'file_name' in item]
-    folders = [item['folder_name']
-               for item in content if 'folder_name' in item]
+    folders = [item['folder_name'] for item in content if 'folder_name' in item]
 
     return jsonify({'files': files, 'folders': folders})
 
@@ -420,13 +408,11 @@ def datanode_status():
     for datanode_addresses, is_active in active_datanodes.items():
         status_data[datanode_addresses] = 'Active' if is_active else 'Inactive'
 
-        failedNode_handled = failedNode_handled_collection.find(
-            {'address': datanode_addresses}, {'_id': 0, 'address': 1})
+        failedNode_handled = failedNode_handled_collection.find({'address':datanode_addresses},{'_id':0, 'address':1})
         failedNode_handled = [doc['address'] for doc in failedNode_handled]
 
         if is_active and datanode_addresses in failedNode_handled:
-            failedNode_handled_collection.delete_many(
-                {'address': datanode_addresses})
+            failedNode_handled_collection.delete_many({'address':datanode_addresses})
 
     return jsonify(status_data)
 
@@ -446,8 +432,7 @@ def move_file():
         return jsonify({'error': 'Paths must start with \'/\''}), 400
 
     # Check if the file or folder exists at the original path
-    file_metadata = files_collection.find_one(
-        {'name': file_name, 'directory_path': original_path}, {'_id': 0, 'id': 1})
+    file_metadata = files_collection.find_one({'name': file_name, 'directory_path': original_path}, {'_id': 0, 'id': 1})
 
     if not file_metadata:
         return jsonify({'error': 'File not found at the original path'}), 404
@@ -488,12 +473,11 @@ def move_folder():
     # Ensure that both paths start with '/'
     if not original_path.startswith('/') or not destination_path.startswith('/'):
         return jsonify({'error': 'Paths must start with \'/\''}), 400
-
+    
     folder_path = original_path + "/" + folder_name
 
     # Check if the folder exists at the original path
-    folder_metadata = directories_collection.find_one(
-        {'path': folder_path}, {'_id': 0, 'content': 1})
+    folder_metadata = directories_collection.find_one({'path': folder_path}, {'_id': 0, 'content': 1})
 
     if not folder_metadata:
         return jsonify({'error': 'Folder not found at the original path'}), 404
@@ -516,11 +500,11 @@ def move_folder():
     }
     directories_collection.insert_one(directory_data)
 
-    # print(folder_path)
+    #print(folder_path)
     deletepaths.append(folder_path)
-    # print(deletepaths)
-
-    update_folder_contents_paths(folder_name, folder_path, destination_path)
+    #print(deletepaths)
+    
+    update_folder_contents_paths(folder_name,folder_path, destination_path)
 
     for path in deletepaths:
         directories_collection.delete_one({'path': path})
@@ -528,17 +512,16 @@ def move_folder():
     return jsonify({"message": f"Folder '{folder_name}' moved successfully from {original_path} to {destination_path}"}), 200
 
 
-def update_folder_contents_paths(folder_name, original_path, destination_path):
+def update_folder_contents_paths(folder_name,original_path, destination_path):
     # Recursively update the directory_path for all contents of the folder
-    contents = directories_collection.find_one(
-        {'path': original_path}, {'_id': 0, 'content': 1})
+    contents = directories_collection.find_one({'path': original_path}, {'_id': 0, 'content': 1})
 
     if contents and 'content' in contents:
         for item in contents['content']:
             if 'file_name' in item:
                 # Update the directory_path for files
                 file_name = item['file_name']
-                destination_path = destination_path + "/" + folder_name
+                destination_path = destination_path +"/" + folder_name
                 files_collection.update_one(
                     {'name': file_name, 'directory_path': original_path},
                     {'$set': {'directory_path': f"{destination_path}"}}
@@ -551,13 +534,12 @@ def update_folder_contents_paths(folder_name, original_path, destination_path):
                 # Update the directory_path for subfolders and recurse into them
 
                 folder_name_new = item['folder_name']
-                # print(folder_name_new)
+                #print(folder_name_new)
                 folder_path = original_path + "/" + folder_name_new
-                # print("folderpath", folder_path)
+                #print("folderpath", folder_path)
                 destination_path = destination_path + "/" + folder_name
 
-                folder_metadata = directories_collection.find_one(
-                    {'path': folder_path}, {'_id': 0, 'content': 1})
+                folder_metadata = directories_collection.find_one({'path': folder_path}, {'_id': 0, 'content': 1})
 
                 if list(folder_metadata) is not None:
 
@@ -579,15 +561,15 @@ def update_folder_contents_paths(folder_name, original_path, destination_path):
                     }
                     directories_collection.insert_one(directory_data)
 
-                    # print(folder_path)
+                    #print(folder_path)
                     deletepaths.append(folder_path)
-                    # print(deletepaths)
+                    #print(deletepaths)
 
-                    update_folder_contents_paths(
-                        folder_name_new, folder_path, destination_path)
+                    update_folder_contents_paths(folder_name_new,folder_path, destination_path)
 
     else:
         return
+
 
 
 @app.route('/re_replicate', methods=['POST'])
@@ -597,33 +579,28 @@ def re_replicate():
     directory_path = request.form.get('directory_path', '/')
 
     # Validate and retrieve file_id based on file_name and directory_path
-    file_metadata = files_collection.find_one(
-        {'name': file_name, 'directory_path': directory_path}, {'_id': 0, 'id': 1})
-
+    file_metadata = files_collection.find_one({'name': file_name, 'directory_path': directory_path}, {'_id': 0, 'id': 1})
+    
     if not file_metadata:
         return jsonify({'error': 'File not found'}), 404
-
+    
     data_id = file_metadata['id']
     failed_nodes = active_datanodes_collection.find({'status': 'Inactive'})
     failed_nodes = [doc['address'] for doc in failed_nodes]
-
-    if len(failed_nodes) != 0:
+    
+    if len(failed_nodes)!=0:
         for address in failed_nodes:
-            failedNode_handled = failedNode_handled_collection.find(
-                {'address': address}, {'_id': 0, 'address': 1})
+            failedNode_handled = failedNode_handled_collection.find({'address':address},{'_id':0, 'address':1})
             failedNode_handled = [doc['address'] for doc in failedNode_handled]
 
-            if len(failedNode_handled) == 0 or address not in failedNode_handled:
-                failedNode_handled_collection.insert_one({'address': address})
-
+            if len(failedNode_handled)==0 or address not in failedNode_handled:
+                failedNode_handled_collection.insert_one({'address':address})
+            
                 # DataNode is not active, initiate re-replication for chunks stored on the failed DataNode
-                failed_datanode_chunks_org = list(chunks_collection.find(
-                    {'datanode_address': address, 'file_id': data_id}, {'_id': 0, 'chunk_id': 1}))
-                failed_datanode_chunks_rep = list(replication_collection.find(
-                    {'datanode_address': address, 'data_id': data_id, 'status': 'success'}, {'_id': 0, 'chunk_id': 1}))
+                failed_datanode_chunks_org = list(chunks_collection.find({'datanode_address': address, 'file_id': data_id},{ '_id':0, 'chunk_id':1}))
+                failed_datanode_chunks_rep = list(replication_collection.find({'datanode_address': address, 'data_id': data_id, 'status':'success'}, {'_id':0, 'chunk_id':1}))
                 failed_datanode_chunks = failed_datanode_chunks_org + failed_datanode_chunks_rep
-                active_dn = active_datanodes_collection.find(
-                    {'status': 'Active'})
+                active_dn = active_datanodes_collection.find({'status': 'Active'})
                 active_dn = [doc['address'] for doc in active_dn]
 
                 for chunk_info in failed_datanode_chunks:
@@ -631,27 +608,23 @@ def re_replicate():
 
                     # Trigger re-replication for the chunk
                     for index in range(len(active_dn)):
-                        chunk_present = chunks_collection.find_one(
-                            {'file_id': data_id, 'chunk_id': chunk_id, 'datanode_address': active_dn[index]})
+                        chunk_present = chunks_collection.find_one({'file_id': data_id, 'chunk_id': chunk_id, 'datanode_address': active_dn[index]})
                         if chunk_present is None:
-
+                        
                             # Select the next available active DataNode
                             node_index = (index+1) % len(active_dn)
                             datanode_address_fetch = active_dn[node_index]
-                            datanode_upload_endpoint = f"{
-                                active_dn[index]}/write_file/"
+                            datanode_upload_endpoint = f"{active_dn[index]}/write_file/"
 
                             # Fetch the chunk data from another DataNode
-                            chunk_data = fetch_chunk_from_datanode(
-                                datanode_address_fetch, data_id, chunk_id)
+                            chunk_data = fetch_chunk_from_datanode(datanode_address_fetch, data_id, chunk_id)
 
                             # If the chunk data is successfully fetched, replicate it to the selected DataNode
                             if chunk_data is not None:
 
-                                chunk_file = {
-                                    'file': (f'chunk_{chunk_id}.bin', chunk_data)}
+                                chunk_file = {'file': (f'chunk_{chunk_id}.bin', chunk_data)}
                                 response = requests.post(datanode_upload_endpoint, files=chunk_file, data={
-                                    'data_id': data_id, 'chunk_id': chunk_id})
+                                                        'data_id': data_id, 'chunk_id': chunk_id})
 
                                 replication_entry = {
                                     'data_id': data_id,
@@ -661,16 +634,14 @@ def re_replicate():
                                 }
 
                                 # Store replication details in MongoDB
-                                replication_collection.insert_one(
-                                    replication_entry)
+                                replication_collection.insert_one(replication_entry)
 
                                 if response.status_code == 200:
-                                    print(f"Successful in replicating chunk {chunk_id} to {
-                                          active_dn[index]} from {datanode_address_fetch}")
+                                    print(f"Successful in replicating chunk {chunk_id} to {active_dn[index]} from {datanode_address_fetch}")
                                     break
                                 else:
-                                    print(f"Failed to fetch chunk {
-                                          chunk_id} from {datanode_address_fetch}")
+                                    print(f"Failed to fetch chunk {chunk_id} from {datanode_address_fetch}")
+            
 
             else:
                 print(f"Failure Handling done for DataNode {address}")
@@ -689,17 +660,15 @@ def delete_file():
     directory_path = request.form.get('directory_path', '/')
 
     # Validate and retrieve file_id based on file_name and directory_path
-    file_metadata = files_collection.find_one(
-        {'name': file_name, 'directory_path': directory_path}, {'_id': 0, 'id': 1})
-
+    file_metadata = files_collection.find_one({'name': file_name, 'directory_path': directory_path}, {'_id': 0, 'id': 1})
+    
     if not file_metadata:
         return jsonify({'error': 'File not found'}), 404
-
+    
     data_id = file_metadata['id']
 
     # Retrieve chunks' metadata from MongoDB
-    chunks_metadata = list(chunks_collection.find(
-        {'file_id': data_id}, {'_id': 0}))
+    chunks_metadata = list(chunks_collection.find({'file_id': data_id}, {'_id': 0}))
 
     # Check if data_id is provided
     if not data_id:
@@ -730,9 +699,8 @@ def delete_file():
 
     # Delete chunks from DataNodes
     for datanode_address in datanode_addresses:
-
-        datanode_delete_endpoint = f"{
-            datanode_address}/delete_chunks/{data_id}"
+        
+        datanode_delete_endpoint = f"{datanode_address}/delete_chunks/{data_id}"
 
         try:
             response = requests.post(datanode_delete_endpoint)
@@ -741,6 +709,7 @@ def delete_file():
                 print(f"Failed to delete from {datanode_address}")
         except requests.exceptions.RequestException:
             print(f"Failed to connect to {datanode_address}")
+
 
     return jsonify({"message": f"File '{file_name}' deleted successfully"}), 200
 
@@ -870,10 +839,15 @@ def copy_file():
     data_id = file_metadata['id']
 
     # Update the directory_path in the files_collection
-    files_collection.insert_one(
-        {'id': data_id},
-        {'directory_path': destination_path}
-    )
+    number_of_chunks = files_collection.find_one({'id': data_id}, {'_id': 0, 'number_of_chunks': 1})
+    file_data = {
+        'id': data_id,
+        'name': file_name,
+        'number_of_chunks': number_of_chunks['number_of_chunks'],
+        'replication_factor': replication_factor,
+        'directory_path': destination_path
+    }
+    files_collection.insert_one(file_data)
 
     # Update the directory information in MongoDB
     directories_collection.update_one(
@@ -883,10 +857,103 @@ def copy_file():
 
     return jsonify({"message": f"File '{file_name}' copied successfully from {original_path} to {destination_path}"}), 200
 
+
+@app.route('/copy_folder', methods=['POST'])
+def copy_folder():
+
+    original_path = request.form.get('original_path')
+    destination_path = request.form.get('destination_path')
+    folder_name = request.form.get('folder_name')
+
+    # Validate input parameters
+    if not original_path or not destination_path or not folder_name:
+        return jsonify({'error': 'Invalid input parameters'}), 400
+
+    # Ensure that both paths start with '/'
+    if not original_path.startswith('/') or not destination_path.startswith('/'):
+        return jsonify({'error': 'Paths must start with \'/\''}), 400
+    
+    folder_path = original_path + "/" + folder_name
+
+    # Check if the folder exists at the original path
+    folder_metadata = directories_collection.find_one({'path': folder_path}, {'_id': 0, 'content': 1})
+
+    if not folder_metadata:
+        return jsonify({'error': 'Folder not found at the original path'}), 404
+
+    # Update the directory information in MongoDB for the folder
+    directories_collection.update_one(
+        {'path': destination_path},
+        {'$addToSet': {'content': {'folder_name': folder_name}}}
+    )
+
+    new_path = destination_path + "/" + folder_name
+    directory_data = {
+        'path': new_path,
+        'content': folder_metadata['content']
+    }
+    directories_collection.insert_one(directory_data)
+    
+    update_folder_contents_paths(folder_name,folder_path, destination_path)
+
+    return jsonify({"message": f"Folder '{folder_name}' copied successfully from {original_path} to {destination_path}"}), 200
+
+
+def update_folder_contents_paths(folder_name,original_path, destination_path):
+    # Recursively update the directory_path for all contents of the folder
+    contents = directories_collection.find_one({'path': original_path}, {'_id': 0, 'content': 1})
+
+    if contents and 'content' in contents:
+        for item in contents['content']:
+            if 'file_name' in item:
+                # Update the directory_path for files
+                file_name = item['file_name']
+                destination_path = destination_path +"/" + folder_name
+                number_of_chunks = files_collection.find_one({'file_name': file_name}, {'_id': 0, 'number_of_chunks': 1})
+                data_id = files_collection.find_one({'file_name': file_name}, {'_id': 0, 'id': 1})
+                if data_id is not None:
+                    file_data = {
+                        'id': data_id['id'],
+                        'name': file_name,
+                        'number_of_chunks': number_of_chunks['number_of_chunks'],
+                        'replication_factor': replication_factor,
+                        'directory_path': destination_path
+                    }
+                    files_collection.insert_one(file_data)
+            elif 'folder_name' in item:
+                # Update the directory_path for subfolders and recurse into them
+
+                folder_name_new = item['folder_name']
+                folder_path = original_path + "/" + folder_name_new
+                destination_path = destination_path + "/" + folder_name
+
+                folder_metadata = directories_collection.find_one({'path': folder_path}, {'_id': 0, 'content': 1})
+
+                if list(folder_metadata) is not None:
+
+                    # Update the directory information in MongoDB for the folder
+
+                    directories_collection.update_one(
+                        {'path': destination_path},
+                        {'$addToSet': {'content': {'folder_name': folder_name_new}}}
+                    )
+
+                    new_path = destination_path + "/" + folder_name_new
+                    directory_data = {
+                        'path': new_path,
+                        'content': folder_metadata['content']
+                    }
+                    directories_collection.insert_one(directory_data)
+
+                    update_folder_contents_paths(folder_name_new,folder_path, destination_path)
+    else:
+        return
+
+
 if __name__ == '__main__':
     health_thread = threading.Thread(target=check_datanodes_health)
     # This ensures the thread exits when the main process does
     health_thread.daemon = True
     health_thread.start()
-
+    
     app.run(port=5003, debug=True)
