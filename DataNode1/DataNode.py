@@ -11,6 +11,7 @@ current_folder = os.path.dirname(os.path.abspath(__file__))
 data_folder = os.path.join(current_folder, 'root')
 os.makedirs(data_folder, exist_ok=True)
 
+
 def init_data_node_status():
     config_path = os.path.join(current_folder, 'config.json')
     if os.path.exists(config_path):
@@ -26,10 +27,13 @@ def init_data_node_status():
         "is_active": True,
         "uuid": uuid_value
     }
+
+
 data_node_status = init_data_node_status()
 
 # Storage format: {'data_id': {'chunk_id': file_path}}
-#storage = {}
+# storage = {}
+
 
 @app.route("/is_active", methods=['GET'])
 def is_active():
@@ -38,31 +42,34 @@ def is_active():
     else:
         return {"status": "DataNode is not active"}, 503
 
+
 @app.route("/write_file/", methods=['POST'])
 def write_file():
     data_id = request.form['data_id']
     chunk_id = request.form['chunk_id']
     file = request.files['file']
-    data_directory = os.path.join('data', secure_filename(data_id))
+    data_directory = os.path.join('root', secure_filename(data_id))
     os.makedirs(data_directory, exist_ok=True)
     file_location = os.path.join(data_directory, secure_filename(chunk_id))
     file.save(file_location)
 
-    #if data_id not in storage:
-        #storage[data_id] = {}
-    #storage[data_id][chunk_id] = file_location
+    # if data_id not in storage:
+    # storage[data_id] = {}
+    # storage[data_id][chunk_id] = file_location
 
     return {"data_id": data_id, "chunk_id": chunk_id, "file_location": file_location}
+
 
 @app.route("/read_file/<data_id>/<chunk_id>", methods=['GET'])
 def read_file(data_id, chunk_id):
     if not data_node_status["is_active"]:
         return {"status": "DataNode is not active"}, 503
-    
+
     data_directory = os.path.join(data_folder, secure_filename(data_id))
     file_location = os.path.join(data_directory, secure_filename(chunk_id))
 
-    print(f"Reading file - data_id: {data_id}, chunk_id: {chunk_id}, file_location: {file_location}")
+    print(f"Reading file - data_id: {data_id}, chunk_id: {
+          chunk_id}, file_location: {file_location}")
 
     if os.path.exists(file_location):
         return send_file(file_location)
@@ -78,11 +85,12 @@ def delete_chunks(data_id):
         for file_name in os.listdir(data_directory):
             file_location = os.path.join(data_directory, file_name)
             os.remove(file_location)
-        
+
         os.rmdir(data_directory)
         return {"message": f"Chunks for data_id {data_id} deleted successfully"}
     else:
         return abort(404, f"Chunks directory for data_id {data_id} not found")
 
+
 if __name__ == "__main__":
-    app.run(port=5005,debug=True)
+    app.run(port=5005, debug=True)
