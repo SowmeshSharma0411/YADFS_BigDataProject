@@ -7,7 +7,7 @@ import requests
 import os
 
 
-commands = ["upload_file", "get_file", "get_info","exit","create_directory","move_file","move_folder","re_replicate","delete_file","get_directory","list_directory","datanode_status"]
+commands = ["upload_file", "get_file", "get_info","exit","create_directory","move_file","move_folder","re_replicate","delete_file","get_directory","list_directory","datanode_status", "delete_folder", "copy_file"]
 command_completer = WordCompleter(commands)
 
 # NameNode API endpoint
@@ -76,6 +76,16 @@ def handle_list_directory(directory_path):
     indented_json = json.dumps(response.json(), indent=2)
     print(indented_json)
 
+def handle_delete_folder(folder_name, directory_path):
+    response = requests.get(f"{namenode_url}/delete_folder", data={'folder_name':folder_name, 'directory_path':directory_path})
+    indented_json = json.dumps(response.json(), indent=2)
+    print(indented_json)
+
+def handle_copy_file(original_path, destination_path, file_name):
+    response = requests.get(f"{namenode_url}/copy_file", data={'original_path':original_path, 'destination_path':destination_path, 'file_name': file_name})
+    indented_json = json.dumps(response.json(), indent=2)
+    print(indented_json)
+
 def main():
     history = InMemoryHistory()
 
@@ -110,7 +120,7 @@ def main():
             original_path = input("Enter the original path: ")
             destination_path = input("Enter the destination path: ")
             folder_name = input("Enter the name of folder: ")
-            handle_move_file(original_path, destination_path, folder_name)
+            handle_move_folder(original_path, destination_path, folder_name)
         elif user_input.lower() == "re_replicate":
             file_name = input("Enter name of file: ")
             directory_path = input("Enter name of directory_path: ")
@@ -126,6 +136,15 @@ def main():
             handle_list_directory(directory_path)
         elif user_input.lower() == "datanode_status":
             handle_datanode_status()
+        elif user_input.lower() == "delete_folder":
+            folder_name = input("Enter folder_name: ")
+            directory_path = input("Enter directory path: ")
+            handle_delete_folder(folder_name,directory_path)
+        elif user_input.lower() == "copy_file":
+            original_path = input("Enter original path: ")
+            destination_path = input("Enter destination path: ")
+            file_name = input("Enter file name: ")
+            handle_copy_file(original_path, destination_path, file_name)
         else:
             print(f"You entered: {user_input}")
 
