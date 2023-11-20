@@ -20,7 +20,7 @@ def handle_upload(file_path, chunks, directory_path):
                 f"{namenode_url}/upload_file",
                 files=files,
                 data={'number_of_chunks': chunks, 'directory_path': directory_path})
-    response = requests.post(f"{namenode_url}/upload_file", files=files, data={'number_of_chunks': chunks})
+    # response = requests.post(f"{namenode_url}/upload_file", files=files, data={'number_of_chunks': chunks})
     indented_json = json.dumps(response.json(), indent = 2)
     print(indented_json)
 
