@@ -13,7 +13,6 @@ from pymongo import MongoClient
 app = Flask(__name__)
 os.makedirs('data', exist_ok=True)
 
-
 # Connect to MongoDB
 print("Connecting to MongoDB...")
 client = MongoClient('mongodb://localhost:27017/')
@@ -50,12 +49,14 @@ failed_node = []
 # Keeps track of all paths which have to be deleted
 deletepaths = []
 
+deletefolder_path=[]
+
 # List of DataNode addresses - replace these with your actual DataNode addresses
 datanode_addresses = [
     "http://localhost:5005",
     "http://localhost:5001",
     "http://localhost:5002",
-    "http://localhost:5006",
+    "http://localhost:5006"
 ]
 
 # Replication factor
@@ -743,6 +744,144 @@ def delete_file():
 
     return jsonify({"message": f"File '{file_name}' deleted successfully"}), 200
 
+
+@app.route('/delete_folder', methods=['POST'])
+def delete_folder():
+    folder_name = request.form.get('folder_name')
+    directory_path = request.form.get('directory_path', '/')
+
+    # Validate input parameters
+    if not folder_name or not directory_path:
+        return jsonify({'error': 'Invalid input parameters'}), 400
+
+    # Ensure that both paths start with '/'
+    if not directory_path.startswith('/'):
+        directory_path = '/' + directory_path
+
+    # Check if the folder exists at the specified path
+    folder_path = directory_path + '/' + folder_name
+    folder_metadata = directories_collection.find_one({'path': folder_path}, {'_id': 0})
+
+    if not folder_metadata:
+        return jsonify({'error': 'Folder not found'}), 404
+
+    else:
+        directories_collection.update_one(
+        {'path': directory_path},
+        {'$pull': {'content': {'folder_name': folder_name}}}
+        )
+        deletefolder_path.append(folder_path)
+
+    # Recursively delete the folder and its contents
+    delete_folder_recursive(folder_path)
+
+    for path in deletefolder_path:
+        directories_collection.delete_one({'path': path})
+
+    return jsonify({"message": f"Folder '{folder_name}' deleted successfully"}), 200
+
+def delete_folder_recursive(folder_path):
+    # Retrieve folder information from MongoDB
+    folder_metadata = directories_collection.find_one({'path': folder_path}, {'_id': 0, 'content': 1})
+
+    if folder_metadata and 'content' in folder_metadata:
+        # Delete contents of the folder (files and subfolders)
+        for item in folder_metadata['content']:
+            if 'file_name' in item:
+                # Delete file from MongoDB and DataNodes
+                file_name = item['file_name']
+                delete_file_from_datanodes(file_name, folder_path)
+
+            elif 'folder_name' in item:
+                # Recursively delete subfolders
+                subfolder_name = item['folder_name']
+                subfolder_path = folder_path + '/' + subfolder_name
+                directories_collection.update_one(
+                {'path': folder_path},
+                {'$pull': {'content': {'folder_name': subfolder_name}}}
+                )
+                deletefolder_path.append(subfolder_path)
+                delete_folder_recursive(subfolder_path)
+
+    else:
+        return
+
+def delete_file_from_datanodes(file_name, folder_path):
+    # Retrieve file metadata from MongoDB
+    file_metadata = files_collection.find_one({'name': file_name, 'directory_path':folder_path}, {'_id': 0, 'id': 1})
+
+    if file_metadata:
+        data_id = file_metadata['id']
+
+        # Delete file metadata from MongoDB
+        files_collection.delete_one({'id': data_id})
+
+        # Delete chunk locations from MongoDB
+        chunks_collection.delete_many({'file_id': data_id})
+
+        # Delete replication chunks from MongoDB
+        replication_collection.delete_many({'file_id': data_id})
+
+        # Remove file from directories collection
+        directory_path = folder_path
+
+        directories_collection.update_one(
+            {'path': directory_path},
+            {'$pull': {'content': {'file_name': file_name}}}
+        )
+
+        # Delete chunks from DataNodes
+        for datanode_address in datanode_addresses:
+            
+            datanode_delete_endpoint = f"{datanode_address}/delete_chunks/{data_id}"
+
+            try:
+                response = requests.post(datanode_delete_endpoint)
+
+                if response.status_code != 200:
+                    print(f"Failed to delete from {datanode_address}")
+            except requests.exceptions.RequestException:
+                print(f"Failed to connect to {datanode_address}")
+    else:
+        # File not found
+        print(f"File not found: {file_name}")
+
+
+@app.route('/copy_file', methods=['POST'])
+def copy_file():
+    original_path = request.form.get('original_path')
+    destination_path = request.form.get('destination_path')
+    file_name = request.form.get('file_name')
+
+    # Validate input parameters
+    if not original_path or not destination_path or not file_name:
+        return jsonify({'error': 'Invalid input parameters'}), 400
+
+    # Ensure that both paths start with '/'
+    if not original_path.startswith('/') or not destination_path.startswith('/'):
+        return jsonify({'error': 'Paths must start with \'/\''}), 400
+
+    # Check if the file or folder exists at the original path
+    file_metadata = files_collection.find_one({'name': file_name, 'directory_path': original_path}, {'_id': 0, 'id': 1})
+
+    if not file_metadata:
+        return jsonify({'error': 'File not found at the original path'}), 404
+
+    data_id = file_metadata['id']
+
+    # Update the directory_path in the files_collection
+    files_collection.insert_one(
+        {'id': data_id},
+        {'directory_path': destination_path}
+    )
+
+    # Update the directory information in MongoDB
+    directories_collection.update_one(
+        {'path': destination_path},
+        {'$addToSet': {'content': {'file_name': file_name}}}
+    )
+
+    return jsonify({"message": f"File '{file_name}' copied successfully from {original_path} to {destination_path}"}), 200
 
 if __name__ == '__main__':
     health_thread = threading.Thread(target=check_datanodes_health)
