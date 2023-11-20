@@ -9,6 +9,7 @@ import requests
 from werkzeug.utils import secure_filename
 import time
 import pymongo
+import datetime
 from pymongo import MongoClient
 
 
@@ -100,7 +101,8 @@ def upload_file():
         'name': file.filename,
         'number_of_chunks': number_of_chunks,
         'replication_factor': replication_factor,
-        'directory_path': directory_path
+        'directory_path': directory_path,
+        'upload_time': datetime.datetime.now()
     }
     files_collection.insert_one(file_data)
 
@@ -443,18 +445,20 @@ def list_directory():
 
     return jsonify({'files': files, 'folders': folders})
 
-#till here
+
 # Endpoint to display the status of DataNodes on request
 @app.route('/datanode_status', methods=['GET'])
 def datanode_status():
-    status_data = {}
+    status_data = {} # Dictionary to hold datanode status data
 
+    # Loop through each datanode and retrieve its status
     for datanode_addresses, is_active in active_datanodes.items():
-        status_data[datanode_addresses] = 'Active' if is_active else 'Inactive'
+        status_data[datanode_addresses] = 'Active' if is_active else 'Inactive'  # Determine if the datanode is active or inactive
 
         failedNode_handled = failedNode_handled_collection.find({'address':datanode_addresses},{'_id':0, 'address':1})
         failedNode_handled = [doc['address'] for doc in failedNode_handled]
 
+        # Check if the current datanode is active and was previously marked as failed and handled
         if is_active and datanode_addresses in failedNode_handled:
             failedNode_handled_collection.delete_many({'address':datanode_addresses})
 
@@ -557,6 +561,7 @@ def move_folder():
 
 
 def update_folder_contents_paths(folder_name,original_path, destination_path):
+    # arguments all the str type
     # Recursively update the directory_path for all contents of the folder
     contents = directories_collection.find_one({'path': original_path}, {'_id': 0, 'content': 1})
 
@@ -820,6 +825,7 @@ def delete_folder_recursive(folder_path):
         return
 
 def delete_file_from_datanodes(file_name, folder_path):
+    #arguments are of type str
     # Retrieve file metadata from MongoDB
     file_metadata = files_collection.find_one({'name': file_name, 'directory_path':folder_path}, {'_id': 0, 'id': 1})
 
@@ -846,9 +852,11 @@ def delete_file_from_datanodes(file_name, folder_path):
         # Delete chunks from DataNodes
         for datanode_address in datanode_addresses:
             
+            # Create the endpoint for deleting chunks associated with the file
             datanode_delete_endpoint = f"{datanode_address}/delete_chunks/{data_id}"
 
             try:
+                # Send a POST request to the DataNode's delete_chunks endpoint
                 response = requests.post(datanode_delete_endpoint)
 
                 if response.status_code != 200:
@@ -889,7 +897,8 @@ def copy_file():
         'name': file_name,
         'number_of_chunks': number_of_chunks['number_of_chunks'],
         'replication_factor': replication_factor,
-        'directory_path': destination_path
+        'directory_path': destination_path,
+        'upload_time': datetime.datetime.now()
     }
     files_collection.insert_one(file_data)
 
