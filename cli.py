@@ -4,6 +4,7 @@ from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import WordCompleter
 import requests
+import os
 
 
 commands = ["upload_file", "get_file", "get_info","exit","create_directory","move_file","move_folder","re_replicate","delete_file","get_directory","list_directory","datanode_status"]
@@ -15,7 +16,7 @@ namenode_url = "http://localhost:5003"
 def handle_upload(file_path, chunks, directory_path):
     with open(file_path, 'rb') as file:
             # Continue with the file upload
-            files = {'file': (file.name, file)}
+            files = {'file': (os.path.basename(file.name), file)}
             response = requests.post(
                 f"{namenode_url}/upload_file",
                 files=files,
@@ -29,26 +30,7 @@ def handle_get_file(file_name, directory_path):
         f"{namenode_url}/get_file",
         data={'file_name': file_name, 'directory_path': directory_path}
     )
-
-    if response.status_code == 200:
-        file_id = response.json().get('file_id')
-        with open(f"downloaded_file_{file_id}.bin", 'wb') as file:
-            file.write(response.content)
-        print(f"File retrieved successfully as: downloaded_file_{file_id}.bin")
-
-        # Fetch and print the file content
-        file_content_response = requests.post(
-            f"{namenode_url}/get_file",
-            data={'file_id': file_id}
-        )
-
-        if file_content_response.status_code == 200:
-            file_content = file_content_response.content.decode('utf-8')
-            print(f"File content: \n{file_content}")
-        else:
-            print(f"Failed to retrieve file content. Error: {file_content_response.text}")
-    else:
-        print(f"Failed to retrieve file. Error: {response.text}")
+    print(response.text)
 
 def handle_get_info():
     response = requests.get(f"{namenode_url}/get_info")
