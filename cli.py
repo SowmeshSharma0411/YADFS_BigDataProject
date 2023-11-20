@@ -12,21 +12,41 @@ command_completer = WordCompleter(commands)
 # NameNode API endpoint
 namenode_url = "http://localhost:5003"
 
-def handle_upload(file_path, chunks):
-    files = {'file': open(file_path, 'rb')} # binary form for reading
+def handle_upload(file_path, chunks, directory_path):
+    with open(file_path, 'rb') as file:
+            # Continue with the file upload
+            files = {'file': (file.name, file)}
+            response = requests.post(
+                f"{namenode_url}/upload_file",
+                files=files,
+                data={'number_of_chunks': chunks, 'directory_path': directory_path})
     response = requests.post(f"{namenode_url}/upload_file", files=files, data={'number_of_chunks': chunks})
     indented_json = json.dumps(response.json(), indent = 2)
     print(indented_json)
 
-def handle_get_file(file_id):
-    response = requests.post(f"{namenode_url}/get_file", data={'file_id': file_id})
+def handle_get_file(file_name, directory_path):
+    response = requests.post(
+        f"{namenode_url}/get_file",
+        data={'file_name': file_name, 'directory_path': directory_path}
+    )
+
     if response.status_code == 200:
+        file_id = response.json().get('file_id')
         with open(f"downloaded_file_{file_id}.bin", 'wb') as file:
             file.write(response.content)
         print(f"File retrieved successfully as: downloaded_file_{file_id}.bin")
-        with open(f"downloaded_file_{file_id}.bin","rb") as file:
-            file_content = file.read()
-            print(f"File content: \n{file_content.decode('utf-8')}")
+
+        # Fetch and print the file content
+        file_content_response = requests.post(
+            f"{namenode_url}/get_file",
+            data={'file_id': file_id}
+        )
+
+        if file_content_response.status_code == 200:
+            file_content = file_content_response.content.decode('utf-8')
+            print(f"File content: \n{file_content}")
+        else:
+            print(f"Failed to retrieve file content. Error: {file_content_response.text}")
     else:
         print(f"Failed to retrieve file. Error: {response.text}")
 
@@ -88,12 +108,14 @@ def main():
         elif user_input.lower() == 'upload_file':
             file_path = input("Enter the path to the file to upload: ")
             chunks = input("Enter number of chunks: ")
-            handle_upload(file_path, chunks)
+            directory_path = input("Enter the directory path: ")
+            handle_upload(file_path, chunks, directory_path)
         elif user_input.lower() == 'get_info':
             handle_get_info()
         elif user_input.lower() == 'get_file':
-            file_id = input("Enter the file ID for the file you want to download: ")
-            handle_get_file(file_id)
+            file_name = input("Enter the file name to download: ")
+            directory_path = input("Enter the directory path (optional, press Enter to use '/'): ")
+            handle_get_file(file_name, directory_path)
         elif user_input.lower() == "create_directory":
             directory_path = input("Enter directory path: ")
             handle_create_directory(directory_path)
