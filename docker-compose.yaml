@@ -1,0 +1,95 @@
+version: '3'
+
+services:
+  mongodb:
+    image: mongo:latest
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - my_network
+
+  namenode:
+    build:
+      context: ./NameNode
+    ports:
+      - '8090:8090'
+    environment:
+      - MONGO_HOST=mongodb
+      - PORT=8090
+    depends_on:
+      - mongodb
+    networks:
+      - my_network
+
+  datanode1:
+    build:
+      context: ./DataNode
+    ports:
+      - '8091:8091'
+    environment:
+      - MONGO_HOST=mongodb
+      - PORT=8091
+    depends_on:
+      - mongodb
+    networks:
+      - my_network
+
+  datanode2:
+    build:
+      context: ./DataNode
+    ports:
+      - '8092:8092'
+    environment:
+      - MONGO_HOST=mongodb
+      - PORT=8092
+    depends_on:
+      - mongodb
+    networks:
+      - my_network
+
+  datanode3:
+    build:
+      context: ./DataNode
+    ports:
+      - '8093:8093'
+    environment:
+      - MONGO_HOST=mongodb
+      - PORT=8093
+    depends_on:
+      - mongodb
+    networks:
+      - my_network
+
+  datanode4:
+    build:
+      context: ./DataNode
+    ports:
+      - '8094:8094'
+    environment:
+      - MONGO_HOST=mongodb
+      - PORT=8094
+    depends_on:
+      - mongodb
+    networks:
+      - my_network
+
+  datanode5:
+    build:
+      context: ./DataNode
+    ports:
+      - '8095:8095'
+    environment:
+      - MONGO_HOST=mongodb
+      - PORT=8095
+    depends_on:
+      - mongodb
+    networks:
+      - my_network
+
+networks:
+  my_network:
+
+volumes:
+  mongodb_data:

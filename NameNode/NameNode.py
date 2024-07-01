@@ -18,7 +18,9 @@ os.makedirs('data', exist_ok=True)
 
 # Connect to MongoDB
 print("Connecting to MongoDB...")
-client = MongoClient('mongodb://localhost:27017/')
+mongo_host = 'mongodb'
+mongo_port = 27017
+client = MongoClient(mongo_host, mongo_port)
 db = client['namenode_db']
 print(client)
 
@@ -56,10 +58,11 @@ deletefolder_path = []
 
 # List of DataNode addresses - replace these with your actual DataNode addresses
 datanode_addresses = [
-    "http://localhost:5005",
-    "http://localhost:5001",
-    "http://localhost:5002",
-    "http://localhost:5006"
+    "http://localhost:8091",
+    "http://localhost:8092",
+    "http://localhost:8093",
+    "http://localhost:8094",
+    "http://localhost:8095"
 ]
 
 # Replication factor
@@ -385,39 +388,45 @@ def split_file(file_stream, number_of_chunks, data_id):
 
 def check_datanodes_health():
     while True:
-        # Iterate through each DataNode address
-        for address in datanode_addresses:
-            try:
-                # Attempt to fetch the DataNode's health status
-                response = requests.get(f"{address}/is_active")
+        print("Health Thread Running", flush=True)#this runs peaceful figured it out
+        time.sleep(10)
+    # while True:
+    #     # Iterate through each DataNode address
+    #     for address in datanode_addresses:
+    #         try:
+    #             # Attempt to fetch the DataNode's health status
+    #             response = requests.get(f"{address}/is_active")
 
-                # Check if the DataNode is active based on the response
-                is_active = response.status_code == 200 and response.json().get(
-                    'status') != "DataNode is not active"
+    #             # Check if the DataNode is active based on the response
+    #             is_active = response.status_code == 200 and response.json().get(
+    #                 'status') != "DataNode is not active"
 
-                # Update the status of the DataNode in the active_datanodes dictionary
-                active_datanodes[address] = is_active
+    #             print(f"DataNode {address} is {
+    #                   'active' if is_active else 'inactive'}")
 
-                # Update the status of the DataNode in the database collection
-                active_datanodes_collection.update_one(
-                    {'address': address},
-                    {'$set': {'status': 'Active' if is_active else 'Inactive'}},
-                    upsert=True
-                )
+    #             # Update the status of the DataNode in the active_datanodes dictionary
+    #             active_datanodes[address] = is_active
 
-            except requests.exceptions.RequestException:
+    #             # Update the status of the DataNode in the database collection
+    #             active_datanodes_collection.update_one(
+    #                 {'address': address},
+    #                 {'$set': {'status': 'Active' if is_active else 'Inactive'}},
+    #                 upsert=True
+    #             )
 
-                # If there's an exception, mark the DataNode as inactive
-                active_datanodes[address] = False
+    #         except requests.exceptions.RequestException:
 
-                # Update the status of the DataNode in the database as 'Inactive'
-                active_datanodes_collection.update_one(
-                    {'address': address},
-                    {'$set': {'status': 'Inactive'}},
-                    upsert=True
-                )
-        # Wait for 1 second before checking the health of DataNodes again
-        time.sleep(1)
+    #             # If there's an exception, mark the DataNode as inactive
+    #             active_datanodes[address] = False
+
+    #             # Update the status of the DataNode in the database as 'Inactive'
+    #             active_datanodes_collection.update_one(
+    #                 {'address': address},
+    #                 {'$set': {'status': 'Inactive'}},
+    #                 upsert=True
+    #             )
+    #     # Wait for 1 second before checking the health of DataNodes again
+    #     time.sleep(5)
 
 
 @app.route('/create_directory', methods=['POST'])
@@ -830,9 +839,11 @@ def copy_file():
 
 
 if __name__ == '__main__':
+
+    port = int(os.getenv("PORT"))
     health_thread = threading.Thread(target=check_datanodes_health)
     # This ensures the thread exits when the main process does
     health_thread.daemon = True
     health_thread.start()
 
-    app.run(port=5003, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=True)
