@@ -13,6 +13,8 @@ data_folder = os.path.join(current_folder, 'root')
 os.makedirs(data_folder, exist_ok=True)
 
 # Initialize DataNode status with a unique identifier and active status
+
+
 def init_data_node_status():
     # Check for or create a configuration file to store DataNode details
     config_path = os.path.join(current_folder, 'config.json')
@@ -30,10 +32,13 @@ def init_data_node_status():
         "uuid": uuid_value
     }
 
+
 # Initialize DataNode status
 data_node_status = init_data_node_status()
 
 # Endpoint to check if the DataNode is active and retrieve its UUID
+
+
 @app.route("/is_active", methods=['GET'])
 def is_active():
     if data_node_status["is_active"]:
@@ -42,6 +47,8 @@ def is_active():
         return {"status": "DataNode is not active"}, 503
 
 # Endpoint to receive and store files on the DataNode
+
+
 @app.route("/write_file/", methods=['POST'])
 def write_file():
     data_id = request.form['data_id']
@@ -55,6 +62,8 @@ def write_file():
     return {"data_id": data_id, "chunk_id": chunk_id, "file_location": file_location}
 
 # Endpoint to read and retrieve a specific file chunk
+
+
 @app.route("/read_file/<data_id>/<chunk_id>", methods=['GET'])
 def read_file(data_id, chunk_id):
     if not data_node_status["is_active"]:
@@ -63,7 +72,8 @@ def read_file(data_id, chunk_id):
     data_directory = os.path.join(data_folder, secure_filename(data_id))
     file_location = os.path.join(data_directory, secure_filename(chunk_id))
 
-    print(f"Reading file - data_id: {data_id}, chunk_id: {chunk_id}, file_location: {file_location}")
+    print(f"Reading file - data_id: {data_id}, chunk_id: {
+          chunk_id}, file_location: {file_location}")
 
     if os.path.exists(file_location):
         return send_file(file_location)
@@ -88,5 +98,8 @@ def delete_chunks(data_id):
 
 
 if __name__ == "__main__":
-    # Run the Flask app on port 5005 in debug mode
-    app.run(port=5005, debug=True)
+    # rerun
+    port = int(os.getenv("PORT"))
+
+    # Run the Flask app on the specified port in debug mode
+    app.run(host='0.0.0.0', port=port, debug=True)

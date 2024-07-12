@@ -17,3 +17,4 @@ Features:
 7. chunks and replication_chunks are collections: which hold the metadata related to chunk storage. it stoes all of them in a linear fashion. one chunk after the other regardless of the file.
    -future improvement: tree like database storage sturcture for faster retrieval of chunk metaData.
 8. re_replicate : is a manual way to re-replicate chunks; in case there is under-replication; and the get_file enpoint fails
+9. All this has been dockerized.

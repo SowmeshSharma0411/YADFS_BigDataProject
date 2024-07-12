@@ -18,7 +18,9 @@ os.makedirs('data', exist_ok=True)
 
 # Connect to MongoDB
 print("Connecting to MongoDB...")
-client = MongoClient('mongodb://localhost:27017/')
+mongo_host = 'mongodb'
+mongo_port = 27017
+client = MongoClient(mongo_host, mongo_port)
 db = client['namenode_db']
 print(client)
 
@@ -54,13 +56,21 @@ deletepaths = []
 
 deletefolder_path = []
 
-# List of DataNode addresses - replace these with your actual DataNode addresses
+# # List of DataNode addresses - replace these with your actual DataNode addresses
 datanode_addresses = [
-    "http://localhost:5005",
-    "http://localhost:5001",
-    "http://localhost:5002",
-    "http://localhost:5006"
+    "http://datanode1:8091",
+    "http://datanode2:8092",
+    "http://datanode3:8093",
+    "http://datanode4:8094",
+    "http://datanode5:8095"
 ]
+# datanode_addresses = [
+#     "http://localhost:8091",
+#     "http://localhost:8092",
+#     "http://localhost:8093",
+#     "http://localhost:8094",
+#     "http://localhost:8095"
+# ]
 
 # Replication factor
 replication_factor = 3
@@ -137,6 +147,8 @@ def get_info():
     files_metadata = list(files_collection.find({}, {'_id': 0}))
     directories_metadata = list(directories_collection.find({}, {'_id': 0}))
     chunks_metadata = list(chunks_collection.find({}, {'_id': 0}))
+
+    print(directories_metadata, flush=True)
 
     # Organize chunks by file name
     file_chunks = defaultdict(list)
@@ -387,6 +399,7 @@ def check_datanodes_health():
     while True:
         # Iterate through each DataNode address
         for address in datanode_addresses:
+            # print("Checking DataNodes health...", flush=True)
             try:
                 # Attempt to fetch the DataNode's health status
                 response = requests.get(f"{address}/is_active")
@@ -394,6 +407,9 @@ def check_datanodes_health():
                 # Check if the DataNode is active based on the response
                 is_active = response.status_code == 200 and response.json().get(
                     'status') != "DataNode is not active"
+
+                print(f"DataNode {address} is {
+                      "active" if is_active else "inactive"}", flush=True)
 
                 # Update the status of the DataNode in the active_datanodes dictionary
                 active_datanodes[address] = is_active
@@ -417,7 +433,7 @@ def check_datanodes_health():
                     upsert=True
                 )
         # Wait for 1 second before checking the health of DataNodes again
-        time.sleep(1)
+        time.sleep(5)
 
 
 @app.route('/create_directory', methods=['POST'])
@@ -830,9 +846,11 @@ def copy_file():
 
 
 if __name__ == '__main__':
+
+    port = int(os.getenv("PORT"))
     health_thread = threading.Thread(target=check_datanodes_health)
     # This ensures the thread exits when the main process does
     health_thread.daemon = True
     health_thread.start()
 
-    app.run(port=5003, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=True)
