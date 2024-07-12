@@ -105,6 +105,9 @@ def upload_file():
 
     split_file(request.files['file'].stream, number_of_chunks, data_id)
 
+    # now all the chunks have been distrubuted and the replication chunks have been distributed as well:
+    # now to write the metadata in mongodb
+
     # Save file metadata in MongoDB -
     file_data = {
         'id': data_id,
@@ -119,13 +122,12 @@ def upload_file():
     # Save chunk locations in MongoDB
     with chunks_location_lock:
         for chunk_id, locations in chunks_location[data_id].items():
-            for location in locations:
-                chunk_data = {
-                    'file_id': data_id,
-                    'chunk_id': chunk_id,
-                    'datanode_address': location
-                }
-                chunks_collection.insert_one(chunk_data)
+            chunk_data = {
+                'file_id': data_id,
+                'chunk_id': chunk_id,
+                'datanode_address': locations[0]
+            }
+            chunks_collection.insert_one(chunk_data)
 
     # Save directory information in MongoDB
     directories_collection.update_one(
@@ -336,6 +338,8 @@ def replicate_chunk(data_id, chunk_id, chunk_data, active_nodes):
 def start_replication(data_id, file_stream, number_of_chunks, chunk_size, extra_bytes, active_nodes):
     # arguments data_id(str), file_stream(file-like object), number_of_chunks(int), chunk_size(int), extra_bytes(int), active_nodes(list)
 
+    replication_threads = []
+
     for i in range(number_of_chunks):
         chunk_id = i + 1
 
@@ -351,7 +355,12 @@ def start_replication(data_id, file_stream, number_of_chunks, chunk_size, extra_
             target=replicate_chunk,
             args=(data_id, chunk_id, chunk_data, active_nodes)
         )
+        replication_threads.append(replication_thread)
         replication_thread.start()
+
+    # Wait for all replication threads to finish, else writes to metaData DB will be wrong
+    for thread in replication_threads:
+        thread.join()
 
 
 # Function to split the file and distribute chunks
@@ -703,7 +712,10 @@ def delete_folder():
         directory_path = '/' + directory_path
 
     # Check if the folder exists at the specified path
-    folder_path = directory_path + '/' + folder_name
+    if (directory_path != '/'):
+        folder_path = directory_path + '/' + folder_name
+    else:
+        folder_path = directory_path + folder_name
     folder_metadata = directories_collection.find_one(
         {'path': folder_path}, {'_id': 0})
 
