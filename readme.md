@@ -51,5 +51,37 @@ YaDFS leverages the foundational principles of GFS. Developed using Python, Flas
 
 <ins>ScreenShots</ins>
 
-
-
+<table>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/6a71227f-0f51-4ae5-afd5-fa3729fa41b3" alt="Screenshot 1"><br>NameNode and DataNodes as Docker Containers</td>
+    <td><img src="https://github.com/user-attachments/assets/42154183-334a-480d-971e-c2a77d47e41d" alt="Screenshot 2"><br>DataNode Health Check by NN Thread</td>
+  </tr>
+   <tr>
+    <td><img src="https://github.com/user-attachments/assets/c424b4ff-e5ed-4e44-8482-fbca19cc4bc7" alt="Screenshot 3"><br>mkdir and Other File System Ops</td>
+    <td><img src="https://github.com/user-attachments/assets/9d57aeba-8734-43e2-bfbe-3fb8a263c878" alt="Screenshot 4"><br>mongosh logs</td>
+  </tr>
+   <tr>
+    <td><img src="https://github.com/user-attachments/assets/12e0238b-2da5-4534-b8cc-68ac54235351" alt="Screenshot 5"><br>Another dir created</td>
+    <td><img src="https://github.com/user-attachments/assets/b1eb09e7-72b7-44f3-8ba9-9a3ce5281660" alt="Screenshot 6"><br>DataNode status when all nodes are alive Vs when some are dead</td>
+  </tr>
+   <tr>
+    <td><img src="https://github.com/user-attachments/assets/b2a56987-2ad3-4db2-9982-deedbc459b30" alt="Screenshot 7"><br>upload_file</td>
+    <td><img src="https://github.com/user-attachments/assets/b11b53ca-3676-4bf6-a1f8-22a464f7333e" alt="Screenshot 8"><br>get_info after upload_file</td>
+  </tr>
+   <tr>
+    <td><img src="https://github.com/user-attachments/assets/4c3097d6-cfbb-4538-b533-6529a3e25af4" alt="Screenshot 9"><br>get_file</td>
+    <td><img src="https://github.com/user-attachments/assets/9286a5b0-1ca6-41a1-97fd-9b1e6236241b" alt="Screenshot 10"><br></td>
+  </tr>
+    <tr>
+    <td><img src="https://github.com/user-attachments/assets/579f556e-893b-4246-b567-9cb37b423296" alt="Screenshot 10"><br>New file uploaded</td>
+    <td><img src="https://github.com/user-attachments/assets/9ff83482-ba16-4577-b45d-4f746ebe97ee" alt="Screenshot 11"><br>Recursive File and Chunk Deletion</td>
+  </tr>
+   <tr>
+    <td><img src="https://github.com/user-attachments/assets/ffcd576a-ec14-42b1-b03d-be5ac3fa59fb" alt="Screenshot 12"><br>2 DataNodes are down</td>
+    <td><img src="https://github.com/user-attachments/assets/ce672e54-f697-4cfb-b38c-e73ff2d73b92" alt="Screenshot 13"><br>Fault Tolerant Download despite 2 DNs being down</td>
+  </tr>
+   <tr>
+    <td><img src="https://github.com/user-attachments/assets/2299707b-b104-4d99-a192-af2044950345" alt="Screenshot 14"><br>dummy2.txt uploaded to /Sowmesh_BigData</td>
+    <td><img src="https://github.com/user-attachments/assets/3b53935f-164a-49af-82a9-0828cff4c10f" alt="Screenshot 15"><br>Recursive Folder Deletion: Including deleting all files within it and all their chunks from all DNs</td>
+  </tr>
+</table>
