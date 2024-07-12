@@ -7,6 +7,7 @@ WORKDIR /app
 # Copy the requirements file and install dependencies
 COPY NameNode.py requirements.txt /app/
 
+# RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Set any necessary environment variables

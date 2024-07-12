@@ -56,14 +56,21 @@ deletepaths = []
 
 deletefolder_path = []
 
-# List of DataNode addresses - replace these with your actual DataNode addresses
+# # List of DataNode addresses - replace these with your actual DataNode addresses
 datanode_addresses = [
-    "http://localhost:8091",
-    "http://localhost:8092",
-    "http://localhost:8093",
-    "http://localhost:8094",
-    "http://localhost:8095"
+    "http://datanode1:8091",
+    "http://datanode2:8092",
+    "http://datanode3:8093",
+    "http://datanode4:8094",
+    "http://datanode5:8095"
 ]
+# datanode_addresses = [
+#     "http://localhost:8091",
+#     "http://localhost:8092",
+#     "http://localhost:8093",
+#     "http://localhost:8094",
+#     "http://localhost:8095"
+# ]
 
 # Replication factor
 replication_factor = 3
@@ -140,6 +147,8 @@ def get_info():
     files_metadata = list(files_collection.find({}, {'_id': 0}))
     directories_metadata = list(directories_collection.find({}, {'_id': 0}))
     chunks_metadata = list(chunks_collection.find({}, {'_id': 0}))
+
+    print(directories_metadata, flush=True)
 
     # Organize chunks by file name
     file_chunks = defaultdict(list)
@@ -388,45 +397,43 @@ def split_file(file_stream, number_of_chunks, data_id):
 
 def check_datanodes_health():
     while True:
-        print("Health Thread Running", flush=True)#this runs peaceful figured it out
-        time.sleep(10)
-    # while True:
-    #     # Iterate through each DataNode address
-    #     for address in datanode_addresses:
-    #         try:
-    #             # Attempt to fetch the DataNode's health status
-    #             response = requests.get(f"{address}/is_active")
+        # Iterate through each DataNode address
+        for address in datanode_addresses:
+            # print("Checking DataNodes health...", flush=True)
+            try:
+                # Attempt to fetch the DataNode's health status
+                response = requests.get(f"{address}/is_active")
 
-    #             # Check if the DataNode is active based on the response
-    #             is_active = response.status_code == 200 and response.json().get(
-    #                 'status') != "DataNode is not active"
+                # Check if the DataNode is active based on the response
+                is_active = response.status_code == 200 and response.json().get(
+                    'status') != "DataNode is not active"
 
-    #             print(f"DataNode {address} is {
-    #                   'active' if is_active else 'inactive'}")
+                print(f"DataNode {address} is {
+                      "active" if is_active else "inactive"}", flush=True)
 
-    #             # Update the status of the DataNode in the active_datanodes dictionary
-    #             active_datanodes[address] = is_active
+                # Update the status of the DataNode in the active_datanodes dictionary
+                active_datanodes[address] = is_active
 
-    #             # Update the status of the DataNode in the database collection
-    #             active_datanodes_collection.update_one(
-    #                 {'address': address},
-    #                 {'$set': {'status': 'Active' if is_active else 'Inactive'}},
-    #                 upsert=True
-    #             )
+                # Update the status of the DataNode in the database collection
+                active_datanodes_collection.update_one(
+                    {'address': address},
+                    {'$set': {'status': 'Active' if is_active else 'Inactive'}},
+                    upsert=True
+                )
 
-    #         except requests.exceptions.RequestException:
+            except requests.exceptions.RequestException:
 
-    #             # If there's an exception, mark the DataNode as inactive
-    #             active_datanodes[address] = False
+                # If there's an exception, mark the DataNode as inactive
+                active_datanodes[address] = False
 
-    #             # Update the status of the DataNode in the database as 'Inactive'
-    #             active_datanodes_collection.update_one(
-    #                 {'address': address},
-    #                 {'$set': {'status': 'Inactive'}},
-    #                 upsert=True
-    #             )
-    #     # Wait for 1 second before checking the health of DataNodes again
-    #     time.sleep(5)
+                # Update the status of the DataNode in the database as 'Inactive'
+                active_datanodes_collection.update_one(
+                    {'address': address},
+                    {'$set': {'status': 'Inactive'}},
+                    upsert=True
+                )
+        # Wait for 1 second before checking the health of DataNodes again
+        time.sleep(5)
 
 
 @app.route('/create_directory', methods=['POST'])
