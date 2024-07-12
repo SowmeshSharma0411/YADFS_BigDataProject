@@ -29,20 +29,27 @@ YaDFS leverages the foundational principles of GFS. Developed using Python, Flas
 
 1. Upload file (upload_file)
 2. Download file (get_file)
-3. Multithreaded NameNode with the capability of monitoring the health status of the DataNodes/chunkservers with a heartbeat mechanism.
-4. Metadata persistence ensured using MongoDB.
-5. File system commands are supported: list_directories (ls), create_directory (mkdir), get_directory, delete_file, delete_folder, move_file, move_folder, copy_file.
-6. A custom CLI is developed using Python. This is the client-side interface to send instructions like create_directory, upload_file, and get_file to the NameNode.
-7. get_info: Gives info on the distributed chunk organization.
-8. datanode_status: Gives the status of all the DataNodes present in the system.
-9. Replication of chunks is made to ensure High Availability of chunks and faster, parallel chunk reads. During the FileWrite process: replication of each chunk and its distribution is done on a completely different thread.
-10. chunks and replication_chunks are collections: that hold the metadata related to chunk storage. it stores all of them in a linear fashion. one chunk after the other regardless of the file.
+3. Both upload_file and get_file are coordinated by the NameNode in YaDFS (in Hadoop/GFS, NameNode handles only metadata operations)
+4. Multithreaded NameNode with the capability of monitoring the health status of the DataNodes/chunkservers with a heartbeat mechanism.
+5. Metadata persistence ensured using MongoDB.
+6. File system commands are supported: list_directories (ls), create_directory (mkdir), get_directory, delete_file, delete_folder, move_file, move_folder, copy_file.
+7. A custom CLI is developed using Python. This is the client-side interface to send instructions like create_directory, upload_file, and get_file to the NameNode.
+8. get_info: Gives info on the distributed chunk organization.
+9. datanode_status: Gives the status of all the DataNodes present in the system.
+10. Replication of chunks is made to ensure High Availability of chunks and faster, parallel chunk reads. During the FileWrite process: replication of each chunk and its distribution is done on a completely different thread.
+11. chunks and replication_chunks are collections: that hold the metadata related to chunk storage. it stores all of them in a linear fashion. one chunk after the other regardless of the file.
    -future improvement: tree like database storage sturcture for faster retrieval of chunk metaData.
-11. re_replicate : is a manual way to re-replicate chunks; in case there is under-replication, especially when multiple DataNodes fail; and the get_file endpoint fails
-12. delete_folder has a recursive deletion capability: deleting all files within it, the file metadata and file chunks and replicated chunks located in different DataNodes.
-13. All this has been dockerized. A custom number of DataNodes can be churned up just by adding another service in docker-compose.
-14. Variable chunk-size: determined based on the "Number of chunks" parameter requested by the user.
-15. M chunks are mapped onto N DataNodes using a simple Round Robin Algorithm
+12. re_replicate : is a manual way to re-replicate chunks; in case there is under-replication, especially when multiple DataNodes fail; and the get_file endpoint fails
+13. delete_folder has a recursive deletion capability: deleting all files within it, the file metadata and file chunks and replicated chunks located in different DataNodes.
+14. All this has been dockerized. A custom number of DataNodes can be churned up just by adding another service in docker-compose.
+15. Variable chunk-size: determined based on the "Number of chunks" parameter requested by the user.
+16. M chunks are mapped onto N DataNodes using a simple Round Robin Algorithm
 
 <ins>YaDFS Architecture</ins>
+
+![YaDFS](https://github.com/user-attachments/assets/37e245ed-a363-42b3-968e-27259428b9f6)
+
+<ins>ScreenShots</ins>
+
+
 
