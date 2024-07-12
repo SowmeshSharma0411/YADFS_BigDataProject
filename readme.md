@@ -36,7 +36,7 @@ YaDFS leverages the foundational principles of GFS. Developed using Python, Flas
 7. A custom CLI is developed using Python. This is the client-side interface to send instructions like create_directory, upload_file, and get_file to the NameNode.
 8. get_info: Gives info on the distributed chunk organization.
 9. datanode_status: Gives the status of all the DataNodes present in the system.
-10. Replication of chunks is made to ensure High Availability of chunks and faster, parallel chunk reads. During the FileWrite process: replication of each chunk and its distribution is done on a completely different thread.
+10. Replication of chunks is made to ensure High Availability of chunks and faster, parallel chunk reads. During the FileWrite process: replication of each chunk and its distribution is done on a completely different thread. (Replication Factor (rf) = 3).
 11. chunks and replication_chunks are collections: that hold the metadata related to chunk storage. it stores all of them in a linear fashion. one chunk after the other regardless of the file.
    -future improvement: tree like database storage sturcture for faster retrieval of chunk metaData.
 12. re_replicate : is a manual way to re-replicate chunks; in case there is under-replication, especially when multiple DataNodes fail; and the get_file endpoint fails
