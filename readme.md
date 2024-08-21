@@ -85,3 +85,5 @@ YaDFS leverages the foundational principles of GFS. Developed using Python, Flas
     <td><img src="https://github.com/user-attachments/assets/3b53935f-164a-49af-82a9-0828cff4c10f" alt="Screenshot 15"><br>Recursive Folder Deletion: Including deleting all files within it and all their chunks from all DNs</td>
   </tr>
 </table>
+
+https://medium.com/@dhammikasamankumara/what-is-hadoop-distributed-file-system-hdfs-36a3503f9c60
